@@ -1,7 +1,11 @@
 {
-  "buildCommand": "pnpm run build",
+  "buildCommand": "pnpm install && pnpm build",
+  "installCommand": "pnpm install",
   "outputDirectory": "dist/memocv/browser",
   "framework": "angular",
+  "env": {
+    "NODE_ENV": "production"
+  },
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
   ]
