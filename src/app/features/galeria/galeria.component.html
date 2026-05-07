@@ -44,28 +44,41 @@
   } @else {
     <div class="students-grid">
       @for (student of store.filteredStudents(); track student.id) {
-        <a [routerLink]="['/student', student.id]" class="student-card">
-          <div class="student-card-photo">
-            @if (student.photos.length > 0) {
-              <img [src]="student.photos[0]" [alt]="student.nombre + ' ' + student.apellidos" />
-            } @else {
-              <div class="student-card-photo-placeholder">
-                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-                  <circle cx="12" cy="7" r="4"/>
-                </svg>
-              </div>
-            }
-            @if (student.emailSent) {
-              <span class="email-sent-badge">Email enviado</span>
-            }
+        <div class="student-card">
+          <a [routerLink]="['/student', student.id]" class="student-card-body">
+            <div class="student-card-photo">
+              @if (student.photos.length > 0) {
+                <img [src]="student.photos[0]" [alt]="student.nombre + ' ' + student.apellidos" />
+              } @else {
+                <div class="student-card-photo-placeholder">
+                  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                    <circle cx="12" cy="7" r="4"/>
+                  </svg>
+                </div>
+              }
+              @if (student.emailSent) {
+                <span class="email-sent-badge">Email enviado</span>
+              }
+            </div>
+            <div class="student-card-info">
+              <h3 class="student-card-name">{{ student.nombre }} {{ student.apellidos }}</h3>
+              <p class="student-card-email">{{ student.email }}</p>
+              <p class="student-card-photos-count">{{ student.photos.length }} foto{{ student.photos.length !== 1 ? 's' : '' }}</p>
+            </div>
+          </a>
+          <div class="student-card-footer">
+            <button class="button-danger" (click)="onDeleteStudent(student)">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="3 6 5 6 21 6"/>
+                <path d="M19 6l-1 14H6L5 6"/>
+                <path d="M10 11v6M14 11v6"/>
+                <path d="M9 6V4h6v2"/>
+              </svg>
+              Eliminar
+            </button>
           </div>
-          <div class="student-card-info">
-            <h3 class="student-card-name">{{ student.nombre }} {{ student.apellidos }}</h3>
-            <p class="student-card-email">{{ student.email }}</p>
-            <p class="student-card-photos-count">{{ student.photos.length }} foto{{ student.photos.length !== 1 ? 's' : '' }}</p>
-          </div>
-        </a>
+        </div>
       }
     </div>
   }

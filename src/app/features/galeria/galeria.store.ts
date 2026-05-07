@@ -46,6 +46,12 @@ export const GaleriaStore = signalStore(
           );
         })
       )
-    )
+    ),
+    async deleteStudent(studentId: string, photoUrls: string[]): Promise<void> {
+      await studentService.deleteStudent(studentId, photoUrls);
+      patchState(store, {
+        students: store.students().filter((student) => student.id !== studentId)
+      });
+    }
   }))
 );

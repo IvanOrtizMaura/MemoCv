@@ -6,6 +6,7 @@ import {
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { GaleriaStore } from './galeria.store';
+import { Student } from '../../core/models/student.model';
 
 @Component({
   selector: 'app-galeria',
@@ -30,5 +31,14 @@ export class GaleriaComponent implements OnInit {
 
   onSendAllEmails(): void {
     console.log('Send all emails — Cloud Function stub');
+  }
+
+  async onDeleteStudent(student: Student): Promise<void> {
+    if (!student.id) return;
+
+    const confirmed = window.confirm('¿Estás seguro de que quieres eliminar este alumno?');
+    if (!confirmed) return;
+
+    await this.store.deleteStudent(student.id, student.photos);
   }
 }

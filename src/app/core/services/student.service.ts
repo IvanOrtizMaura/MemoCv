@@ -13,6 +13,7 @@ import {
   doc,
   addDoc,
   updateDoc,
+  deleteDoc,
   onSnapshot,
   Firestore,
   Timestamp,
@@ -25,8 +26,10 @@ import {
   ref,
   uploadBytes,
   getDownloadURL,
+  deleteObject,
   FirebaseStorage
 } from 'firebase/storage';
+import { getFunctions, httpsCallable, Functions } from 'firebase/functions';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { Student, StudentFormData } from '../models/student.model';
@@ -37,6 +40,7 @@ export class StudentService {
     getApps().length ? getApp() : initializeApp(environment.firebase);
   private readonly firestore: Firestore = getFirestore(this.firebaseApp);
   private readonly storage: FirebaseStorage = getStorage(this.firebaseApp);
+  private readonly functions: Functions = getFunctions(this.firebaseApp, 'europe-west1');
 
   private readonly studentsCollection = collection(this.firestore, 'students');
 
@@ -105,6 +109,42 @@ export class StudentService {
   async markEmailSent(studentId: string): Promise<void> {
     const studentDocRef = doc(this.firestore, 'students', studentId);
     await updateDoc(studentDocRef, { emailSent: true });
+  }
+
+  async deleteStudent(studentId: string, photoUrls: string[]): Promise<void> {
+    const studentDocRef = doc(this.firestore, 'students', studentId);
+    await deleteDoc(studentDocRef);
+
+    const deletePhotoPromises = photoUrls.map((photoUrl) => {
+      const photoRef = ref(this.storage, photoUrl);
+      return deleteObject(photoRef);
+    });
+    await Promise.all(deletePhotoPromises);
+  }
+
+  /**
+   * Calls the `sendStudentEmail` Cloud Function.
+   *
+   * The function downloads the student's photos from Firebase Storage,
+   * sends them as email attachments via Nodemailer/Gmail, and marks
+   * `emailSent: true` in Firestore on success.
+   *
+   * @param studentId  Firestore document ID of the student.
+   * @throws {FirebaseError} if the function call fails (unauthenticated,
+   *   not-found, internal, etc.). The caller should handle this.
+   */
+  async sendEmail(studentId: string): Promise<void> {
+    const sendStudentEmail = httpsCallable<
+      { studentId: string },
+      { success: boolean; message: string }
+    >(this.functions, 'sendStudentEmail');
+
+    const result = await sendStudentEmail({ studentId });
+
+    if (!result.data.success) {
+      // The function returned success:false (e.g. email already sent)
+      throw new Error(result.data.message);
+    }
   }
 
   private mapDocumentToStudent(id: string, data: DocumentData): Student {

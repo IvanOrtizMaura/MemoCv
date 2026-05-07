@@ -26,6 +26,8 @@ export class StudentDetailComponent implements OnInit {
   protected readonly isLoading = signal(true);
   protected readonly notFound = signal(false);
   protected readonly isSendingEmail = signal(false);
+  protected readonly isDeleting = signal(false);
+  protected readonly errorMessage = signal<string | null>(null);
 
   ngOnInit(): void {
     const studentId = this.activatedRoute.snapshot.paramMap.get('id');
@@ -56,15 +58,35 @@ export class StudentDetailComponent implements OnInit {
 
     this.isSendingEmail.set(true);
     try {
-      console.log('Send email Cloud Function stub — student ID:', currentStudent.id);
-      await this.studentService.markEmailSent(currentStudent.id);
+      await this.studentService.sendEmail(currentStudent.id);
       this.student.update((previous) =>
         previous ? { ...previous, emailSent: true } : null
       );
     } catch (error: unknown) {
-      console.error('Error sending email:', error);
+      const message = error instanceof Error ? error.message : 'Error desconocido';
+      console.error('Error sending email via Cloud Function:', message, error);
     } finally {
       this.isSendingEmail.set(false);
+    }
+  }
+
+  async onDeleteStudent(): Promise<void> {
+    const currentStudent = this.student();
+    if (!currentStudent?.id) return;
+
+    const confirmed = window.confirm('¿Estás seguro de que quieres eliminar este alumno?');
+    if (!confirmed) return;
+
+    this.isDeleting.set(true);
+    this.errorMessage.set(null);
+    try {
+      await this.studentService.deleteStudent(currentStudent.id, currentStudent.photos);
+      this.router.navigate(['/galeria']);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Error al eliminar el estudiante';
+      this.errorMessage.set(message);
+    } finally {
+      this.isDeleting.set(false);
     }
   }
 }
