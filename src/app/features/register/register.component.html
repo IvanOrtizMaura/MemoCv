@@ -1,0 +1,113 @@
+<section class="register-page">
+  <div class="register-container">
+    <header class="register-header">
+      <h1 class="register-title">Nuevo Registro</h1>
+      <p class="register-subtitle">Añade un estudiante y sus fotos de CV</p>
+    </header>
+
+    <form class="register-form" [formGroup]="registerForm" (ngSubmit)="onSubmit()">
+      <div class="form-section">
+        <h2 class="form-section-title">Datos personales</h2>
+        <div class="form-grid">
+          <div class="form-field" [class.field-error]="isFieldInvalid('nombre')">
+            <label for="nombre">Nombre *</label>
+            <input
+              id="nombre"
+              type="text"
+              formControlName="nombre"
+              placeholder="Ana"
+              autocomplete="given-name"
+            />
+            @if (isFieldInvalid('nombre')) {
+              <span class="field-error-message">El nombre es obligatorio (mínimo 2 caracteres)</span>
+            }
+          </div>
+          <div class="form-field" [class.field-error]="isFieldInvalid('apellidos')">
+            <label for="apellidos">Apellidos *</label>
+            <input
+              id="apellidos"
+              type="text"
+              formControlName="apellidos"
+              placeholder="García López"
+              autocomplete="family-name"
+            />
+            @if (isFieldInvalid('apellidos')) {
+              <span class="field-error-message">Los apellidos son obligatorios (mínimo 2 caracteres)</span>
+            }
+          </div>
+          <div class="form-field form-field-full" [class.field-error]="isFieldInvalid('email')">
+            <label for="email">Email *</label>
+            <input
+              id="email"
+              type="email"
+              formControlName="email"
+              placeholder="ana@example.com"
+              autocomplete="email"
+            />
+            @if (isFieldInvalid('email')) {
+              <span class="field-error-message">Introduce un email válido</span>
+            }
+          </div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <h2 class="form-section-title">
+          Fotos
+          <span class="photos-counter">{{ photosCount() }} / {{ maxPhotos }}</span>
+        </h2>
+
+        <div class="photos-grid">
+          @for (preview of previewUrls(); track $index) {
+            <div class="photo-preview">
+              <img [src]="preview" alt="Preview foto {{ $index + 1 }}" />
+              <button
+                type="button"
+                class="photo-remove-button"
+                (click)="removePhoto($index)"
+                aria-label="Eliminar foto"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
+            </div>
+          }
+
+          @if (canAddMorePhotos()) {
+            <label class="photo-upload-slot" for="photo-input">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+              </svg>
+              <span>Añadir foto</span>
+              <input
+                id="photo-input"
+                type="file"
+                accept="image/*"
+                multiple
+                (change)="onFileSelected($event)"
+              />
+            </label>
+          }
+        </div>
+        <p class="photos-hint">Puedes añadir hasta {{ maxPhotos }} fotos. La primera foto será la miniatura en la galería.</p>
+      </div>
+
+      @if (errorMessage()) {
+        <div class="form-error">{{ errorMessage() }}</div>
+      }
+
+      <div class="form-actions">
+        <a routerLink="/galeria" class="button-secondary">Cancelar</a>
+        <button type="submit" class="button-primary" [disabled]="isLoading()">
+          @if (isLoading()) {
+            <span class="button-spinner"></span>
+            Guardando...
+          } @else {
+            Guardar registro
+          }
+        </button>
+      </div>
+    </form>
+  </div>
+</section>

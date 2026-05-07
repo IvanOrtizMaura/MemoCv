@@ -1,0 +1,8 @@
+<app-navbar />
+@if (isLoggedIn()) {
+  <main class="main-content">
+    <router-outlet />
+  </main>
+} @else {
+  <router-outlet />
+}

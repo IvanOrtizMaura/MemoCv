@@ -1,0 +1,73 @@
+<section class="detail-page">
+  @if (isLoading()) {
+    <div class="loading-state">
+      <div class="loading-spinner"></div>
+      <p>Cargando estudiante...</p>
+    </div>
+  } @else if (notFound()) {
+    <div class="not-found-state">
+      <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>
+      <h2>Estudiante no encontrado</h2>
+      <p>El registro que buscas no existe o fue eliminado.</p>
+      <a routerLink="/galeria" class="button-primary">Volver a galería</a>
+    </div>
+  } @else if (student()) {
+    <div class="detail-container">
+      <header class="detail-header">
+        <a routerLink="/galeria" class="back-link">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
+          </svg>
+          Volver a galería
+        </a>
+        <div class="detail-title-row">
+          <div class="detail-identity">
+            <h1 class="detail-name">{{ student()!.nombre }} {{ student()!.apellidos }}</h1>
+            <p class="detail-email">{{ student()!.email }}</p>
+          </div>
+          <div class="detail-actions">
+            @if (student()!.emailSent) {
+              <span class="email-sent-tag">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+                Email enviado
+              </span>
+            } @else {
+              <button class="button-primary" (click)="onSendEmail()" [disabled]="isSendingEmail()">
+                @if (isSendingEmail()) {
+                  <span class="button-spinner"></span>
+                  Enviando...
+                } @else {
+                  Enviar email
+                }
+              </button>
+            }
+          </div>
+        </div>
+      </header>
+
+      <div class="photos-section">
+        <h2 class="photos-title">
+          Fotos
+          <span class="photos-count">{{ student()!.photos.length }}</span>
+        </h2>
+        @if (student()!.photos.length === 0) {
+          <div class="photos-empty">
+            <p>Este estudiante no tiene fotos aún.</p>
+          </div>
+        } @else {
+          <div class="photos-grid">
+            @for (photoUrl of student()!.photos; track $index) {
+              <div class="photo-item">
+                <img [src]="photoUrl" [alt]="'Foto ' + ($index + 1) + ' de ' + student()!.nombre" />
+              </div>
+            }
+          </div>
+        }
+      </div>
+    </div>
+  }
+</section>
