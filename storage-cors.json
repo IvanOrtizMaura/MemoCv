@@ -1,0 +1,8 @@
+[
+  {
+    "origin": ["https://memo-cv.vercel.app", "http://localhost:4200"],
+    "method": ["GET"],
+    "responseHeader": ["Content-Type", "Content-Disposition"],
+    "maxAgeSeconds": 3600
+  }
+]

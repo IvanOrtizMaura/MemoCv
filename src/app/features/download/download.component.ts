@@ -77,16 +77,17 @@ export class DownloadComponent implements OnInit {
     }
   }
 
-  downloadPhoto(photoUrl: string, photoIndex: number): void {
-    const separator = photoUrl.includes('?') ? '&' : '?';
-    const downloadUrl = `${photoUrl}${separator}response-content-disposition=attachment%3Bfilename%3Dfoto_${photoIndex + 1}.jpg`;
+  async downloadPhoto(photoUrl: string, photoIndex: number): Promise<void> {
+    const response = await fetch(photoUrl);
+    const blob = await response.blob();
+    const objectUrl = URL.createObjectURL(blob);
     const anchorElement = document.createElement('a');
-    anchorElement.href = downloadUrl;
-    anchorElement.target = '_blank';
-    anchorElement.rel = 'noopener';
+    anchorElement.href = objectUrl;
+    anchorElement.download = `foto_${photoIndex + 1}.jpg`;
     document.body.appendChild(anchorElement);
     anchorElement.click();
     document.body.removeChild(anchorElement);
+    URL.revokeObjectURL(objectUrl);
   }
 
   async downloadAllPhotos(): Promise<void> {
@@ -94,7 +95,7 @@ export class DownloadComponent implements OnInit {
     const allPhotoUrls = this.photoUrls();
 
     for (let photoIndex = 0; photoIndex < allPhotoUrls.length; photoIndex++) {
-      this.downloadPhoto(allPhotoUrls[photoIndex], photoIndex);
+      await this.downloadPhoto(allPhotoUrls[photoIndex], photoIndex);
       await new Promise<void>((resolve) => setTimeout(resolve, 800));
     }
 
