@@ -1,0 +1,17 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Students — solo usuarios autenticados
+    match /students/{studentId} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Download tokens — lectura pública (para la página de descarga sin login)
+    // Escritura solo desde la Cloud Function (service account autenticado)
+    match /downloadTokens/{token} {
+      allow read: if true;
+      allow write: if false;
+    }
+  }
+}
