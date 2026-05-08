@@ -32,5 +32,12 @@ export const routes: Routes = [
         (m) => m.StudentDetailComponent
       )
   },
+  {
+    path: 'descargar/:token',
+    loadComponent: () =>
+      import('./features/download/download.component').then(
+        (m) => m.DownloadComponent
+      )
+  },
   { path: '**', redirectTo: 'galeria' }
 ];

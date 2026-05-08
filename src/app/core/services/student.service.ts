@@ -29,7 +29,7 @@ import {
   deleteObject,
   FirebaseStorage
 } from 'firebase/storage';
-import { getFunctions, httpsCallable, Functions } from 'firebase/functions';
+import { getFunctions, httpsCallable, Functions, connectFunctionsEmulator } from 'firebase/functions';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { Student, StudentFormData } from '../models/student.model';
@@ -41,6 +41,12 @@ export class StudentService {
   private readonly firestore: Firestore = getFirestore(this.firebaseApp);
   private readonly storage: FirebaseStorage = getStorage(this.firebaseApp);
   private readonly functions: Functions = getFunctions(this.firebaseApp, 'us-central1');
+
+  constructor() {
+    if (!environment.production && window.location.hostname === 'localhost') {
+      connectFunctionsEmulator(this.functions, '127.0.0.1', 5001);
+    }
+  }
 
   private readonly studentsCollection = collection(this.firestore, 'students');
 
