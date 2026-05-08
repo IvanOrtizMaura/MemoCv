@@ -51,24 +51,10 @@ interface StudentData {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-
 /**
- * Builds the HTML email body following the original Google Apps Script template.
+ * Builds the HTML email body with a single download-page button.
  */
-function buildEmailHtml(nombre: string, photoUrls: string[]): string {
-  const photoCount = photoUrls.length;
-  const photoWord = photoCount === 1 ? 'fotografía' : 'fotografías';
-  const photoLinks = photoUrls
-    .map(
-      (url, i) => `
-    <p style="margin: 8px 0;">
-      <a href="${url}" style="color: #e74c3c; text-decoration: none; font-weight: bold;">
-        📷 Foto ${i + 1}
-      </a>
-    </p>`
-    )
-    .join('');
-
+function buildEmailHtml(nombre: string, downloadPageUrl: string): string {
   return `
 <!DOCTYPE html>
 <html lang="es">
@@ -81,11 +67,26 @@ function buildEmailHtml(nombre: string, photoUrls: string[]): string {
   <h2 style="color: #2c3e50;">¡Hola, ${nombre}! 👋</h2>
 
   <p>
-    Te envío los enlaces para descargar las <strong>${photoCount} ${photoWord}</strong> capturadas de
+    Te envío el enlace para descargar las fotografías capturadas de
     nuestra sesión. ¡El resultado ha quedado genial! 🎉
   </p>
 
-  ${photoLinks}
+  <p style="margin: 24px 0;">
+    <a href="${downloadPageUrl}" style="
+      display: inline-block;
+      background-color: #e74c3c;
+      color: #fff;
+      padding: 14px 28px;
+      border-radius: 6px;
+      text-decoration: none;
+      font-weight: bold;
+      font-size: 18px;
+    ">
+      ⬇️ Descargar mis fotos
+    </a>
+  </p>
+
+  <p style="color: #e67e22; font-weight: bold;">⚠️ Este enlace caduca en 7 días</p>
 
   <p>
     Puedes ver más sobre nuestro trabajo en
@@ -189,7 +190,21 @@ export const sendStudentEmail = onCall(
       return { success: false, message: 'Email was already sent for this student.' };
     }
 
-    // ── 4. Send email via Gmail SMTP with photo links ─────────────────────────
+    // ── 4. Generate download token and persist to Firestore ──────────────────
+    const token = crypto.randomUUID();
+    const expiresAt = admin.firestore.Timestamp.fromDate(
+      new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+    );
+    await db.collection('downloadTokens').doc(token).set({
+      photoUrls: student.photos,
+      studentName: `${student.nombre} ${student.apellidos}`,
+      expiresAt,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    const downloadPageUrl = `https://memocv-topaz.vercel.app/descargar/${token}`;
+    logger.info(`Download token created: ${token} for studentId=${studentId}`);
+
+    // ── 5. Send email via Gmail SMTP with download page link ──────────────────
     const gmailPassword = process.env['GMAIL_PASSWORD'];
 
     if (!gmailPassword) {
@@ -211,23 +226,22 @@ export const sendStudentEmail = onCall(
     });
 
     const nombre = student.nombre;
-    const photoCount = student.photos.length;
 
-    logger.info(`Sending email to ${student.email} with ${photoCount} photo link(s)…`);
+    logger.info(`Sending email to ${student.email} with download page link…`);
 
     try {
       await transporter.sendMail({
         from: '"MemodreamsEvents" <memodreamsevents@gmail.com>',
         to: student.email,
         subject: `Fotos CV - ${nombre}`,
-        html: buildEmailHtml(nombre, student.photos),
+        html: buildEmailHtml(nombre, downloadPageUrl),
       });
     } catch (mailError: unknown) {
       logger.error('Failed to send email:', mailError);
       throw new HttpsError('internal', 'Failed to send email. Please try again later.');
     }
 
-    // ── 7. Mark emailSent: true in Firestore ──────────────────────────────────
+    // ── 6. Mark emailSent: true in Firestore ──────────────────────────────────
     await studentRef.update({ emailSent: true });
     logger.info(`Marked emailSent=true for studentId=${studentId}`);
 
