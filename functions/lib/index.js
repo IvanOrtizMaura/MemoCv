@@ -176,7 +176,7 @@ function buildEmailHtml(nombre, photoCount) {
  *   await fn({ studentId: 'abc123' });
  */
 exports.sendStudentEmail = functions
-    .region('europe-west1')
+    .region('us-central1')
     .runWith({
     timeoutSeconds: 120,
     memory: '512MB',

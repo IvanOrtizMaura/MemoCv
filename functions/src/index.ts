@@ -162,7 +162,7 @@ function buildEmailHtml(nombre: string, photoCount: number): string {
  *   await fn({ studentId: 'abc123' });
  */
 export const sendStudentEmail = functions
-  .region('europe-west1')
+  .region('us-central1')
   .runWith({
     timeoutSeconds: 120,
     memory: '512MB',

@@ -40,7 +40,7 @@ export class StudentService {
     getApps().length ? getApp() : initializeApp(environment.firebase);
   private readonly firestore: Firestore = getFirestore(this.firebaseApp);
   private readonly storage: FirebaseStorage = getStorage(this.firebaseApp);
-  private readonly functions: Functions = getFunctions(this.firebaseApp, 'europe-west1');
+  private readonly functions: Functions = getFunctions(this.firebaseApp, 'us-central1');
 
   private readonly studentsCollection = collection(this.firestore, 'students');
 
