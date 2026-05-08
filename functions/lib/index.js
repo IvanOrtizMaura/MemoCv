@@ -69,11 +69,11 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.sendStudentEmail = void 0;
-const functions = __importStar(require("firebase-functions/v2"));
-const https_1 = require("firebase-functions/v2/https");
+const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
 const nodemailer = __importStar(require("nodemailer"));
 const axios_1 = __importDefault(require("axios"));
+const { HttpsError } = functions.https;
 // ── Firebase Admin init ───────────────────────────────────────────────────────
 admin.initializeApp();
 const db = admin.firestore();
@@ -184,41 +184,35 @@ function buildEmailHtml(nombre, photoCount) {
  *   const fn = httpsCallable(functions, 'sendStudentEmail');
  *   await fn({ studentId: 'abc123' });
  */
-exports.sendStudentEmail = (0, https_1.onCall)({
-    // Pull the Gmail password from Firebase Secrets Manager.
-    // Set it once with:  firebase functions:secrets:set GMAIL_PASSWORD
-    secrets: ['GMAIL_PASSWORD'],
-    // Optional: restrict to your Firebase Auth users only (enforced below too)
-    enforceAppCheck: false, // set to true if you add App Check to the Angular app
-    // Generous timeout to allow downloading several photos
-    timeoutSeconds: 120,
-    memory: '512MiB',
-    region: 'europe-west1', // change to your preferred region
-}, async (request) => {
+exports.sendStudentEmail = functions
+    .region('europe-west1')
+    .runWith({ timeoutSeconds: 120, memory: '512MB' })
+    .https.onCall(async (data, context) => {
+    var _a;
     // ── 1. Authentication guard ───────────────────────────────────────────────
-    if (!request.auth) {
-        throw new https_1.HttpsError('unauthenticated', 'You must be signed in to send emails.');
+    if (!context.auth) {
+        throw new HttpsError('unauthenticated', 'You must be signed in to send emails.');
     }
     // ── 2. Validate input ─────────────────────────────────────────────────────
-    const { studentId } = request.data;
+    const { studentId } = data;
     if (!studentId || typeof studentId !== 'string' || studentId.trim() === '') {
-        throw new https_1.HttpsError('invalid-argument', 'studentId must be a non-empty string.');
+        throw new HttpsError('invalid-argument', 'studentId must be a non-empty string.');
     }
     functions.logger.info(`sendStudentEmail called for studentId=${studentId}`, {
-        callerUid: request.auth.uid,
+        callerUid: context.auth.uid,
     });
     // ── 3. Read student from Firestore ────────────────────────────────────────
     const studentRef = db.collection('students').doc(studentId.trim());
     const snapshot = await studentRef.get();
     if (!snapshot.exists) {
-        throw new https_1.HttpsError('not-found', `Student ${studentId} not found.`);
+        throw new HttpsError('not-found', `Student ${studentId} not found.`);
     }
     const student = snapshot.data();
     if (!student.email) {
-        throw new https_1.HttpsError('failed-precondition', 'Student has no email address.');
+        throw new HttpsError('failed-precondition', 'Student has no email address.');
     }
     if (!student.photos || student.photos.length === 0) {
-        throw new https_1.HttpsError('failed-precondition', 'Student has no photos to send.');
+        throw new HttpsError('failed-precondition', 'Student has no photos to send.');
     }
     if (student.emailSent) {
         functions.logger.warn(`Email already sent for studentId=${studentId}. Aborting.`);
@@ -236,11 +230,13 @@ exports.sendStudentEmail = (0, https_1.onCall)({
         };
     }));
     // ── 5. Build Nodemailer transporter ───────────────────────────────────────
-    // GMAIL_PASSWORD is injected as an environment secret (see top of file).
-    const gmailPassword = process.env['GMAIL_PASSWORD'];
+    // In v1, use functions.config() to access runtime config.
+    // Set with: firebase functions:config:set gmail.password="xxxx"
+    // Or fall back to process.env for local testing.
+    const gmailPassword = ((_a = functions.config().gmail) === null || _a === void 0 ? void 0 : _a.password) || process.env['GMAIL_PASSWORD'];
     if (!gmailPassword) {
         functions.logger.error('GMAIL_PASSWORD secret is not set.');
-        throw new https_1.HttpsError('internal', 'Email service is not configured. Contact the administrator.');
+        throw new HttpsError('internal', 'Email service is not configured. Contact the administrator.');
     }
     const transporter = nodemailer.createTransport({
         service: 'gmail',
@@ -266,7 +262,7 @@ exports.sendStudentEmail = (0, https_1.onCall)({
     }
     catch (mailError) {
         functions.logger.error('Nodemailer failed to send email:', mailError);
-        throw new https_1.HttpsError('internal', 'Failed to send email. Please try again later.');
+        throw new HttpsError('internal', 'Failed to send email. Please try again later.');
     }
     // ── 7. Mark emailSent: true in Firestore ──────────────────────────────────
     await studentRef.update({ emailSent: true });

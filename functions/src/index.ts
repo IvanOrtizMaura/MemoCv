@@ -31,11 +31,12 @@
  * ─────────────────────────────────────────────
  */
 
-import * as functions from 'firebase-functions/v2';
-import { onCall, HttpsError } from 'firebase-functions/v2/https';
+import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import * as nodemailer from 'nodemailer';
 import axios from 'axios';
+
+const { HttpsError } = functions.https;
 
 // ── Firebase Admin init ───────────────────────────────────────────────────────
 admin.initializeApp();
@@ -169,23 +170,12 @@ function buildEmailHtml(nombre: string, photoCount: number): string {
  *   const fn = httpsCallable(functions, 'sendStudentEmail');
  *   await fn({ studentId: 'abc123' });
  */
-export const sendStudentEmail = onCall<SendEmailRequest, Promise<SendEmailResponse>>(
-  {
-    // Pull the Gmail password from Firebase Secrets Manager.
-    // Set it once with:  firebase functions:secrets:set GMAIL_PASSWORD
-    secrets: ['GMAIL_PASSWORD'],
-
-    // Optional: restrict to your Firebase Auth users only (enforced below too)
-    enforceAppCheck: false, // set to true if you add App Check to the Angular app
-
-    // Generous timeout to allow downloading several photos
-    timeoutSeconds: 120,
-    memory: '512MiB',
-    region: 'europe-west1', // change to your preferred region
-  },
-  async (request): Promise<SendEmailResponse> => {
+export const sendStudentEmail = functions
+  .region('europe-west1')
+  .runWith({ timeoutSeconds: 120, memory: '512MB' })
+  .https.onCall(async (data: SendEmailRequest, context): Promise<SendEmailResponse> => {
     // ── 1. Authentication guard ───────────────────────────────────────────────
-    if (!request.auth) {
+    if (!context.auth) {
       throw new HttpsError(
         'unauthenticated',
         'You must be signed in to send emails.'
@@ -193,13 +183,13 @@ export const sendStudentEmail = onCall<SendEmailRequest, Promise<SendEmailRespon
     }
 
     // ── 2. Validate input ─────────────────────────────────────────────────────
-    const { studentId } = request.data;
+    const { studentId } = data;
     if (!studentId || typeof studentId !== 'string' || studentId.trim() === '') {
       throw new HttpsError('invalid-argument', 'studentId must be a non-empty string.');
     }
 
     functions.logger.info(`sendStudentEmail called for studentId=${studentId}`, {
-      callerUid: request.auth.uid,
+      callerUid: context.auth.uid,
     });
 
     // ── 3. Read student from Firestore ────────────────────────────────────────
@@ -241,8 +231,10 @@ export const sendStudentEmail = onCall<SendEmailRequest, Promise<SendEmailRespon
     );
 
     // ── 5. Build Nodemailer transporter ───────────────────────────────────────
-    // GMAIL_PASSWORD is injected as an environment secret (see top of file).
-    const gmailPassword = process.env['GMAIL_PASSWORD'];
+    // In v1, use functions.config() to access runtime config.
+    // Set with: firebase functions:config:set gmail.password="xxxx"
+    // Or fall back to process.env for local testing.
+    const gmailPassword = functions.config().gmail?.password || process.env['GMAIL_PASSWORD'];
 
     if (!gmailPassword) {
       functions.logger.error('GMAIL_PASSWORD secret is not set.');
@@ -290,5 +282,4 @@ export const sendStudentEmail = onCall<SendEmailRequest, Promise<SendEmailRespon
       success: true,
       message: `Email sent successfully to ${student.email}.`,
     };
-  }
-);
+  });
