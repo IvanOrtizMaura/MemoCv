@@ -43,7 +43,7 @@
                 </svg>
                 Email enviado
               </span>
-            } @else {
+            } @else if (hasPhotosForEmail()) {
               <button class="button-primary" (click)="onSendEmail()" [disabled]="isSendingEmail() || isDeleting()">
                 @if (isSendingEmail()) {
                   <span class="button-spinner"></span>
@@ -52,6 +52,13 @@
                   Enviar email
                 }
               </button>
+            } @else {
+              <span class="no-photos-tag">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
+                </svg>
+                Añade fotos para enviar email
+              </span>
             }
             <button class="button-danger" (click)="onDeleteStudent()" [disabled]="isDeleting() || isSendingEmail()">
               @if (isDeleting()) {
@@ -85,6 +92,65 @@
             @for (photoUrl of student()!.photos; track $index) {
               <div class="photo-item">
                 <img [src]="photoUrl" [alt]="'Foto ' + ($index + 1) + ' de ' + student()!.nombre" />
+              </div>
+            }
+          </div>
+        }
+
+        @if (student()!.photos.length < maxPhotos) {
+          <div class="upload-section">
+            <h3 class="upload-title">Añadir fotos</h3>
+            <div class="upload-grid">
+              @for (previewUrl of photoPreviewUrls(); track $index) {
+                <div class="upload-preview">
+                  <img [src]="previewUrl" [alt]="'Vista previa ' + ($index + 1)" />
+                  <button
+                    type="button"
+                    class="upload-remove-button"
+                    (click)="onRemoveSelectedPhoto($index)"
+                    aria-label="Eliminar foto seleccionada"
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                      <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                  </button>
+                </div>
+              }
+              @if (canAddMorePhotos()) {
+                <label class="upload-slot" for="detail-photo-input">
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                  </svg>
+                  <span>Añadir foto</span>
+                  <input
+                    id="detail-photo-input"
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    (change)="onPhotoFileSelected($event)"
+                  />
+                </label>
+              }
+            </div>
+            @if (selectedPhotoFiles().length > 0) {
+              <div class="upload-actions">
+                <button
+                  type="button"
+                  class="button-primary"
+                  (click)="onAddPhotos()"
+                  [disabled]="isUploadingPhotos()"
+                >
+                  @if (isUploadingPhotos()) {
+                    <span class="button-spinner"></span>
+                    Subiendo...
+                  } @else {
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/>
+                      <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/>
+                    </svg>
+                    Guardar {{ selectedPhotoFiles().length }} foto{{ selectedPhotoFiles().length !== 1 ? 's' : '' }}
+                  }
+                </button>
               </div>
             }
           </div>

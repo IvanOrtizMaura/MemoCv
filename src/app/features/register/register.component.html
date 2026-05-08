@@ -2,7 +2,7 @@
   <div class="register-container">
     <header class="register-header">
       <h1 class="register-title">Nuevo Registro</h1>
-      <p class="register-subtitle">Añade un estudiante y sus fotos de CV</p>
+      <p class="register-subtitle">Añade un estudiante. Las fotos son opcionales y se pueden añadir después.</p>
     </header>
 
     <form class="register-form" [formGroup]="registerForm" (ngSubmit)="onSubmit()">
@@ -90,7 +90,7 @@
             </label>
           }
         </div>
-        <p class="photos-hint">Puedes añadir hasta {{ maxPhotos }} fotos. La primera foto será la miniatura en la galería.</p>
+        <p class="photos-hint">Opcional — puedes añadir hasta {{ maxPhotos }} fotos. La primera foto será la miniatura en la galería. También puedes añadirlas después desde el detalle del estudiante.</p>
       </div>
 
       @if (errorMessage()) {

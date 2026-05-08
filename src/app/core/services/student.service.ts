@@ -106,6 +106,16 @@ export class StudentService {
     return Promise.all(uploadPromises);
   }
 
+  async addPhotosToStudent(studentId: string, photoFiles: File[]): Promise<string[]> {
+    const newPhotoUrls = await this.uploadPhotos(studentId, photoFiles);
+    const studentDocRef = doc(this.firestore, 'students', studentId);
+    const snapshot = await getDoc(studentDocRef);
+    const existingPhotos = (snapshot.data()?.['photos'] as string[]) ?? [];
+    const mergedPhotos = [...existingPhotos, ...newPhotoUrls];
+    await updateDoc(studentDocRef, { photos: mergedPhotos });
+    return mergedPhotos;
+  }
+
   async markEmailSent(studentId: string): Promise<void> {
     const studentDocRef = doc(this.firestore, 'students', studentId);
     await updateDoc(studentDocRef, { emailSent: true });
