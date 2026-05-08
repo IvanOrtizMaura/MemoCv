@@ -202,7 +202,7 @@ export const sendStudentEmail = onCall(
       expiresAt,
       createdAt: FieldValue.serverTimestamp(),
     });
-    const downloadPageUrl = `https://memocv-topaz.vercel.app/descargar/${token}`;
+    const downloadPageUrl = `https://memo-cv.vercel.app/descargar/${token}`;
     logger.info(`Download token created: ${token} for studentId=${studentId}`);
 
     // ── 5. Send email via Gmail SMTP with download page link ──────────────────
