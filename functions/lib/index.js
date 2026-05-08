@@ -60,6 +60,7 @@ exports.sendStudentEmail = void 0;
 const https_1 = require("firebase-functions/v2/https");
 const v2_1 = require("firebase-functions/v2");
 const admin = __importStar(require("firebase-admin"));
+const firestore_1 = require("firebase-admin/firestore");
 const nodemailer = __importStar(require("nodemailer"));
 // ── Firebase Admin init ───────────────────────────────────────────────────────
 admin.initializeApp();
@@ -190,12 +191,12 @@ exports.sendStudentEmail = (0, https_1.onCall)({
     }
     // ── 4. Generate download token and persist to Firestore ──────────────────
     const token = crypto.randomUUID();
-    const expiresAt = admin.firestore.Timestamp.fromDate(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000));
+    const expiresAt = firestore_1.Timestamp.fromDate(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000));
     await db.collection('downloadTokens').doc(token).set({
         photoUrls: student.photos,
         studentName: `${student.nombre} ${student.apellidos}`,
         expiresAt,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: firestore_1.FieldValue.serverTimestamp(),
     });
     const downloadPageUrl = `https://memocv-topaz.vercel.app/descargar/${token}`;
     v2_1.logger.info(`Download token created: ${token} for studentId=${studentId}`);
