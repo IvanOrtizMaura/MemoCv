@@ -63,7 +63,7 @@ exports.sendStudentEmail = void 0;
 const https_1 = require("firebase-functions/v2/https");
 const v2_1 = require("firebase-functions/v2");
 const admin = __importStar(require("firebase-admin"));
-const resend_1 = require("resend");
+const nodemailer = __importStar(require("nodemailer"));
 const axios_1 = __importDefault(require("axios"));
 // ── Firebase Admin init ───────────────────────────────────────────────────────
 admin.initializeApp();
@@ -179,7 +179,7 @@ exports.sendStudentEmail = (0, https_1.onCall)({
     region: 'us-central1',
     timeoutSeconds: 120,
     memory: '512MiB',
-    secrets: ['RESEND_API_KEY'],
+    secrets: ['GMAIL_PASSWORD'],
 }, async (request) => {
     // ── 1. Authentication guard ───────────────────────────────────────────────
     if (!request.auth) {
@@ -221,32 +221,36 @@ exports.sendStudentEmail = (0, https_1.onCall)({
             contentType: 'image/jpeg',
         };
     }));
-    // ── 5. Send email via Resend ──────────────────────────────────────────────
-    const resendApiKey = process.env['RESEND_API_KEY'];
-    if (!resendApiKey) {
-        v2_1.logger.error('RESEND_API_KEY secret is not set.');
+    // ── 5. Send email via Gmail SMTP ──────────────────────────────────────────
+    const gmailPassword = process.env['GMAIL_PASSWORD'];
+    if (!gmailPassword) {
+        v2_1.logger.error('GMAIL_PASSWORD secret is not set.');
         throw new https_1.HttpsError('internal', 'Email service is not configured. Contact the administrator.');
     }
-    const resend = new resend_1.Resend(resendApiKey);
+    const transporter = nodemailer.createTransport({
+        host: 'smtp.gmail.com',
+        port: 587,
+        secure: false,
+        auth: {
+            user: 'memodreamsevents@gmail.com',
+            pass: gmailPassword,
+        },
+    });
     const nombre = student.nombre;
     const photoCount = student.photos.length;
     v2_1.logger.info(`Sending email to ${student.email} with ${photoCount} attachment(s)…`);
     try {
-        const { error } = await resend.emails.send({
-            from: 'MemodreamsEvents <onboarding@resend.dev>', // TODO: change to 'MemodreamsEvents <eventos@memodreams.com>' once domain is verified
+        await transporter.sendMail({
+            from: '"MemodreamsEvents" <memodreamsevents@gmail.com>',
             to: student.email,
             subject: `FOTO CV JOB DAY UIB 2026 - ${nombre}`,
             html: buildEmailHtml(nombre, photoCount),
             attachments: attachments.map((a) => ({
                 filename: a.filename,
-                content: a.content, // Resend accepts Buffer directly
+                content: a.content,
+                contentType: 'image/jpeg',
             })),
         });
-        if (error) {
-            v2_1.logger.error('Resend returned an error:', error);
-            throw new https_1.HttpsError('internal', 'Failed to send email. Please try again later.');
-        }
-        v2_1.logger.info(`Email sent successfully via Resend to ${student.email}`);
     }
     catch (mailError) {
         v2_1.logger.error('Resend failed to send email:', mailError);
