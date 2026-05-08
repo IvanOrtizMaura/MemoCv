@@ -6,29 +6,20 @@
  *  1. Verifies the caller is authenticated.
  *  2. Reads the student document from Firestore.
  *  3. Downloads each photo from its Firebase Storage download URL.
- *  4. Sends an HTML email via Nodemailer/Gmail with the photos as real attachments.
+ *  4. Sends an HTML email via Resend with the photos as real attachments.
  *  5. Marks emailSent: true in Firestore on success.
  *
  * ─────────────────────────────────────────────
- * SETUP — Gmail App Password (required)
+ * SETUP — Resend API Key (required)
  * ─────────────────────────────────────────────
- * Gmail requires an App Password, NOT your regular account password.
+ * Store the Resend API key as a Firebase Secret:
+ *   firebase functions:secrets:set RESEND_API_KEY
  *
- * How to generate one:
- *   1. Go to https://myaccount.google.com/security
- *   2. Enable 2-Step Verification (if not already enabled).
- *   3. Go to "App passwords" → create one for "Mail" / "Other (custom name)".
- *   4. Copy the 16-character password.
- *
- * Store it as a Firebase Secret (recommended for production):
- *   firebase functions:secrets:set GMAIL_PASSWORD
- *
- * Or via Functions config (legacy, v1 style):
- *   firebase functions:config:set gmail.password="xxxx xxxx xxxx xxxx"
- *   Then access with: functions.config().gmail.password
+ * The secret is injected automatically via runWith({ secrets: ['RESEND_API_KEY'] })
+ * and is accessible at process.env['RESEND_API_KEY'] at runtime.
  *
  * For local development / emulator, create functions/.secret.local:
- *   GMAIL_PASSWORD=xxxx xxxx xxxx xxxx
+ *   RESEND_API_KEY=re_xxxxxxxxxxxxxxxxxxxx
  * ─────────────────────────────────────────────
  */
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
@@ -71,7 +62,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.sendStudentEmail = void 0;
 const functions = __importStar(require("firebase-functions/v1"));
 const admin = __importStar(require("firebase-admin"));
-const nodemailer = __importStar(require("nodemailer"));
+const resend_1 = require("resend");
 const axios_1 = __importDefault(require("axios"));
 const { HttpsError } = functions.https;
 // ── Firebase Admin init ───────────────────────────────────────────────────────
@@ -186,9 +177,12 @@ function buildEmailHtml(nombre, photoCount) {
  */
 exports.sendStudentEmail = functions
     .region('europe-west1')
-    .runWith({ timeoutSeconds: 120, memory: '512MB' })
+    .runWith({
+    timeoutSeconds: 120,
+    memory: '512MB',
+    secrets: ['RESEND_API_KEY'], // injects the secret as process.env['RESEND_API_KEY']
+})
     .https.onCall(async (data, context) => {
-    var _a;
     // ── 1. Authentication guard ───────────────────────────────────────────────
     if (!context.auth) {
         throw new HttpsError('unauthenticated', 'You must be signed in to send emails.');
@@ -229,39 +223,37 @@ exports.sendStudentEmail = functions
             contentType: 'image/jpeg',
         };
     }));
-    // ── 5. Build Nodemailer transporter ───────────────────────────────────────
-    // In v1, use functions.config() to access runtime config.
-    // Set with: firebase functions:config:set gmail.password="xxxx"
-    // Or fall back to process.env for local testing.
-    const gmailPassword = ((_a = functions.config().gmail) === null || _a === void 0 ? void 0 : _a.password) || process.env['GMAIL_PASSWORD'];
-    if (!gmailPassword) {
-        functions.logger.error('GMAIL_PASSWORD secret is not set.');
+    // ── 5. Send email via Resend ──────────────────────────────────────────────
+    // TODO: switch from to 'MemodreamsEvents <eventos@memodreams.com>' once
+    //       the memodreams.com domain is verified in Resend.
+    const resendApiKey = process.env['RESEND_API_KEY'];
+    if (!resendApiKey) {
+        functions.logger.error('RESEND_API_KEY secret is not set.');
         throw new HttpsError('internal', 'Email service is not configured. Contact the administrator.');
     }
-    const transporter = nodemailer.createTransport({
-        service: 'gmail',
-        auth: {
-            user: 'Memodreamsevents@gmail.com',
-            pass: gmailPassword,
-        },
-    });
-    // ── 6. Send email ─────────────────────────────────────────────────────────
+    const resend = new resend_1.Resend(resendApiKey);
     const nombre = student.nombre;
     const photoCount = student.photos.length;
-    const mailOptions = {
-        from: '"MemodreamsEvents" <Memodreamsevents@gmail.com>',
-        to: student.email,
-        subject: `FOTO CV JOB DAY UIB 2026 - ${nombre}`,
-        html: buildEmailHtml(nombre, photoCount),
-        attachments,
-    };
     functions.logger.info(`Sending email to ${student.email} with ${photoCount} attachment(s)…`);
     try {
-        const info = await transporter.sendMail(mailOptions);
-        functions.logger.info(`Email sent. messageId=${info.messageId}`);
+        const { error } = await resend.emails.send({
+            from: 'MemodreamsEvents <onboarding@resend.dev>', // TODO: change to 'MemodreamsEvents <eventos@memodreams.com>' once domain is verified
+            to: student.email,
+            subject: `FOTO CV JOB DAY UIB 2026 - ${nombre}`,
+            html: buildEmailHtml(nombre, photoCount),
+            attachments: attachments.map((a) => ({
+                filename: a.filename,
+                content: a.content, // Resend accepts Buffer directly
+            })),
+        });
+        if (error) {
+            functions.logger.error('Resend returned an error:', error);
+            throw new HttpsError('internal', 'Failed to send email. Please try again later.');
+        }
+        functions.logger.info(`Email sent successfully via Resend to ${student.email}`);
     }
     catch (mailError) {
-        functions.logger.error('Nodemailer failed to send email:', mailError);
+        functions.logger.error('Resend failed to send email:', mailError);
         throw new HttpsError('internal', 'Failed to send email. Please try again later.');
     }
     // ── 7. Mark emailSent: true in Firestore ──────────────────────────────────
