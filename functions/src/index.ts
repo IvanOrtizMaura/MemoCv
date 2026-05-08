@@ -22,12 +22,11 @@
  * ─────────────────────────────────────────────
  */
 
-import * as functions from 'firebase-functions/v1';
+import { onCall, HttpsError, CallableRequest } from 'firebase-functions/v2/https';
+import { logger } from 'firebase-functions/v2';
 import * as admin from 'firebase-admin';
 import { Resend } from 'resend';
 import axios from 'axios';
-
-const { HttpsError } = functions.https;
 
 // ── Firebase Admin init ───────────────────────────────────────────────────────
 admin.initializeApp();
@@ -161,16 +160,16 @@ function buildEmailHtml(nombre: string, photoCount: number): string {
  *   const fn = httpsCallable(functions, 'sendStudentEmail');
  *   await fn({ studentId: 'abc123' });
  */
-export const sendStudentEmail = functions
-  .region('us-central1')
-  .runWith({
+export const sendStudentEmail = onCall(
+  {
+    region: 'us-central1',
     timeoutSeconds: 120,
-    memory: '512MB',
-    secrets: ['RESEND_API_KEY'], // injects the secret as process.env['RESEND_API_KEY']
-  })
-  .https.onCall(async (data: SendEmailRequest, context): Promise<SendEmailResponse> => {
+    memory: '512MiB',
+    secrets: ['RESEND_API_KEY'],
+  },
+  async (request: CallableRequest<SendEmailRequest>): Promise<SendEmailResponse> => {
     // ── 1. Authentication guard ───────────────────────────────────────────────
-    if (!context.auth) {
+    if (!request.auth) {
       throw new HttpsError(
         'unauthenticated',
         'You must be signed in to send emails.'
@@ -178,13 +177,13 @@ export const sendStudentEmail = functions
     }
 
     // ── 2. Validate input ─────────────────────────────────────────────────────
-    const { studentId } = data;
+    const { studentId } = request.data;
     if (!studentId || typeof studentId !== 'string' || studentId.trim() === '') {
       throw new HttpsError('invalid-argument', 'studentId must be a non-empty string.');
     }
 
-    functions.logger.info(`sendStudentEmail called for studentId=${studentId}`, {
-      callerUid: context.auth.uid,
+    logger.info(`sendStudentEmail called for studentId=${studentId}`, {
+      callerUid: request.auth.uid,
     });
 
     // ── 3. Read student from Firestore ────────────────────────────────────────
@@ -206,12 +205,12 @@ export const sendStudentEmail = functions
     }
 
     if (student.emailSent) {
-      functions.logger.warn(`Email already sent for studentId=${studentId}. Aborting.`);
+      logger.warn(`Email already sent for studentId=${studentId}. Aborting.`);
       return { success: false, message: 'Email was already sent for this student.' };
     }
 
     // ── 4. Download photos ────────────────────────────────────────────────────
-    functions.logger.info(`Downloading ${student.photos.length} photo(s)…`);
+    logger.info(`Downloading ${student.photos.length} photo(s)…`);
 
     const attachments = await Promise.all(
       student.photos.map(async (url, index) => {
@@ -226,12 +225,10 @@ export const sendStudentEmail = functions
     );
 
     // ── 5. Send email via Resend ──────────────────────────────────────────────
-    // TODO: switch from to 'MemodreamsEvents <eventos@memodreams.com>' once
-    //       the memodreams.com domain is verified in Resend.
     const resendApiKey = process.env['RESEND_API_KEY'];
 
     if (!resendApiKey) {
-      functions.logger.error('RESEND_API_KEY secret is not set.');
+      logger.error('RESEND_API_KEY secret is not set.');
       throw new HttpsError(
         'internal',
         'Email service is not configured. Contact the administrator.'
@@ -243,7 +240,7 @@ export const sendStudentEmail = functions
     const nombre = student.nombre;
     const photoCount = student.photos.length;
 
-    functions.logger.info(`Sending email to ${student.email} with ${photoCount} attachment(s)…`);
+    logger.info(`Sending email to ${student.email} with ${photoCount} attachment(s)…`);
 
     try {
       const { error } = await resend.emails.send({
@@ -258,19 +255,19 @@ export const sendStudentEmail = functions
       });
 
       if (error) {
-        functions.logger.error('Resend returned an error:', error);
+        logger.error('Resend returned an error:', error);
         throw new HttpsError('internal', 'Failed to send email. Please try again later.');
       }
 
-      functions.logger.info(`Email sent successfully via Resend to ${student.email}`);
+      logger.info(`Email sent successfully via Resend to ${student.email}`);
     } catch (mailError: unknown) {
-      functions.logger.error('Resend failed to send email:', mailError);
+      logger.error('Resend failed to send email:', mailError);
       throw new HttpsError('internal', 'Failed to send email. Please try again later.');
     }
 
     // ── 7. Mark emailSent: true in Firestore ──────────────────────────────────
     await studentRef.update({ emailSent: true });
-    functions.logger.info(`Marked emailSent=true for studentId=${studentId}`);
+    logger.info(`Marked emailSent=true for studentId=${studentId}`);
 
     return {
       success: true,
