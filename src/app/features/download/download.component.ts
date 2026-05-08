@@ -77,15 +77,16 @@ export class DownloadComponent implements OnInit {
     }
   }
 
-  async downloadPhoto(photoUrl: string, photoIndex: number): Promise<void> {
-    const response = await fetch(photoUrl);
-    const blob = await response.blob();
-    const objectUrl = URL.createObjectURL(blob);
+  downloadPhoto(photoUrl: string, photoIndex: number): void {
+    const separator = photoUrl.includes('?') ? '&' : '?';
+    const downloadUrl = `${photoUrl}${separator}response-content-disposition=attachment%3Bfilename%3Dfoto_${photoIndex + 1}.jpg`;
     const anchorElement = document.createElement('a');
-    anchorElement.href = objectUrl;
-    anchorElement.download = `foto_${photoIndex + 1}.jpg`;
+    anchorElement.href = downloadUrl;
+    anchorElement.target = '_blank';
+    anchorElement.rel = 'noopener';
+    document.body.appendChild(anchorElement);
     anchorElement.click();
-    URL.revokeObjectURL(objectUrl);
+    document.body.removeChild(anchorElement);
   }
 
   async downloadAllPhotos(): Promise<void> {
@@ -93,10 +94,8 @@ export class DownloadComponent implements OnInit {
     const allPhotoUrls = this.photoUrls();
 
     for (let photoIndex = 0; photoIndex < allPhotoUrls.length; photoIndex++) {
-      await this.downloadPhoto(allPhotoUrls[photoIndex], photoIndex);
-      if (photoIndex < allPhotoUrls.length - 1) {
-        await new Promise<void>((resolve) => setTimeout(resolve, 500));
-      }
+      this.downloadPhoto(allPhotoUrls[photoIndex], photoIndex);
+      await new Promise<void>((resolve) => setTimeout(resolve, 800));
     }
 
     this.isDownloadingAll.set(false);
