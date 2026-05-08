@@ -254,7 +254,7 @@ export const sendStudentEmail = onCall(
       await transporter.sendMail({
         from: '"MemodreamsEvents" <memodreamsevents@gmail.com>',
         to: student.email,
-        subject: `FOTO CV JOB DAY UIB 2026 - ${nombre}`,
+        subject: `Fotos CV - ${nombre}`,
         html: buildEmailHtml(nombre, photoCount),
         attachments: attachments.map((a) => ({
           filename: a.filename,
