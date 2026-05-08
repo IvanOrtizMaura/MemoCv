@@ -55,59 +55,30 @@ var __importStar = (this && this.__importStar) || (function () {
         return result;
     };
 })();
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.sendStudentEmail = void 0;
 const https_1 = require("firebase-functions/v2/https");
 const v2_1 = require("firebase-functions/v2");
 const admin = __importStar(require("firebase-admin"));
 const nodemailer = __importStar(require("nodemailer"));
-const axios_1 = __importDefault(require("axios"));
 // ── Firebase Admin init ───────────────────────────────────────────────────────
 admin.initializeApp();
 const db = admin.firestore();
 // ── Helpers ───────────────────────────────────────────────────────────────────
 /**
- * Downloads a file from a URL and returns it as a Buffer.
- * Throws an HttpsError if the download fails.
- */
-async function downloadPhoto(url) {
-    const response = await axios_1.default.get(url, {
-        responseType: 'arraybuffer',
-        timeout: 30000, // 30 s per photo
-    });
-    return Buffer.from(response.data);
-}
-/**
- * Infers a safe filename from a Firebase Storage download URL.
- * Falls back to a numbered default when the URL has no readable path segment.
- */
-function filenameFromUrl(url, index) {
-    try {
-        const decoded = decodeURIComponent(url);
-        // Firebase Storage URLs contain the path after "/o/" — e.g.
-        // .../o/students%2FstudentId%2Fphoto.jpg?...
-        const match = decoded.match(/\/o\/(.+?)(\?|$)/);
-        if (match) {
-            const segments = match[1].split('/');
-            const name = segments[segments.length - 1];
-            // Make sure we have an image extension
-            if (/\.(jpe?g|png|gif|webp)$/i.test(name))
-                return name;
-        }
-    }
-    catch (_a) {
-        // ignore parse errors
-    }
-    return `foto_${index + 1}.jpg`;
-}
-/**
  * Builds the HTML email body following the original Google Apps Script template.
  */
-function buildEmailHtml(nombre, photoCount) {
+function buildEmailHtml(nombre, photoUrls) {
+    const photoCount = photoUrls.length;
     const photoWord = photoCount === 1 ? 'fotografía' : 'fotografías';
+    const photoLinks = photoUrls
+        .map((url, i) => `
+    <p style="margin: 8px 0;">
+      <a href="${url}" style="color: #e74c3c; text-decoration: none; font-weight: bold;">
+        📷 Foto ${i + 1}
+      </a>
+    </p>`)
+        .join('');
     return `
 <!DOCTYPE html>
 <html lang="es">
@@ -120,9 +91,11 @@ function buildEmailHtml(nombre, photoCount) {
   <h2 style="color: #2c3e50;">¡Hola, ${nombre}! 👋</h2>
 
   <p>
-    Te envío adjuntas las <strong>${photoCount} ${photoWord}</strong> capturadas de
+    Te envío los enlaces para descargar las <strong>${photoCount} ${photoWord}</strong> capturadas de
     nuestra sesión. ¡El resultado ha quedado genial! 🎉
   </p>
+
+  ${photoLinks}
 
   <p>
     Puedes ver más sobre nuestro trabajo en
@@ -210,18 +183,7 @@ exports.sendStudentEmail = (0, https_1.onCall)({
         v2_1.logger.warn(`Email already sent for studentId=${studentId}. Aborting.`);
         return { success: false, message: 'Email was already sent for this student.' };
     }
-    // ── 4. Download photos ────────────────────────────────────────────────────
-    v2_1.logger.info(`Downloading ${student.photos.length} photo(s)…`);
-    const attachments = await Promise.all(student.photos.map(async (url, index) => {
-        const buffer = await downloadPhoto(url);
-        const filename = filenameFromUrl(url, index);
-        return {
-            filename,
-            content: buffer,
-            contentType: 'image/jpeg',
-        };
-    }));
-    // ── 5. Send email via Gmail SMTP ──────────────────────────────────────────
+    // ── 4. Send email via Gmail SMTP with photo links ─────────────────────────
     const gmailPassword = process.env['GMAIL_PASSWORD'];
     if (!gmailPassword) {
         v2_1.logger.error('GMAIL_PASSWORD secret is not set.');
@@ -238,22 +200,17 @@ exports.sendStudentEmail = (0, https_1.onCall)({
     });
     const nombre = student.nombre;
     const photoCount = student.photos.length;
-    v2_1.logger.info(`Sending email to ${student.email} with ${photoCount} attachment(s)…`);
+    v2_1.logger.info(`Sending email to ${student.email} with ${photoCount} photo link(s)…`);
     try {
         await transporter.sendMail({
             from: '"MemodreamsEvents" <memodreamsevents@gmail.com>',
             to: student.email,
             subject: `Fotos CV - ${nombre}`,
-            html: buildEmailHtml(nombre, photoCount),
-            attachments: attachments.map((a) => ({
-                filename: a.filename,
-                content: a.content,
-                contentType: 'image/jpeg',
-            })),
+            html: buildEmailHtml(nombre, student.photos),
         });
     }
     catch (mailError) {
-        v2_1.logger.error('Resend failed to send email:', mailError);
+        v2_1.logger.error('Failed to send email:', mailError);
         throw new https_1.HttpsError('internal', 'Failed to send email. Please try again later.');
     }
     // ── 7. Mark emailSent: true in Firestore ──────────────────────────────────

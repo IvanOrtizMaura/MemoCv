@@ -26,7 +26,6 @@ import { onCall, HttpsError, CallableRequest } from 'firebase-functions/v2/https
 import { logger } from 'firebase-functions/v2';
 import * as admin from 'firebase-admin';
 import * as nodemailer from 'nodemailer';
-import axios from 'axios';
 
 // ── Firebase Admin init ───────────────────────────────────────────────────────
 admin.initializeApp();
@@ -52,45 +51,24 @@ interface StudentData {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-/**
- * Downloads a file from a URL and returns it as a Buffer.
- * Throws an HttpsError if the download fails.
- */
-async function downloadPhoto(url: string): Promise<Buffer> {
-  const response = await axios.get<ArrayBuffer>(url, {
-    responseType: 'arraybuffer',
-    timeout: 30_000, // 30 s per photo
-  });
-  return Buffer.from(response.data);
-}
-
-/**
- * Infers a safe filename from a Firebase Storage download URL.
- * Falls back to a numbered default when the URL has no readable path segment.
- */
-function filenameFromUrl(url: string, index: number): string {
-  try {
-    const decoded = decodeURIComponent(url);
-    // Firebase Storage URLs contain the path after "/o/" — e.g.
-    // .../o/students%2FstudentId%2Fphoto.jpg?...
-    const match = decoded.match(/\/o\/(.+?)(\?|$)/);
-    if (match) {
-      const segments = match[1].split('/');
-      const name = segments[segments.length - 1];
-      // Make sure we have an image extension
-      if (/\.(jpe?g|png|gif|webp)$/i.test(name)) return name;
-    }
-  } catch {
-    // ignore parse errors
-  }
-  return `foto_${index + 1}.jpg`;
-}
 
 /**
  * Builds the HTML email body following the original Google Apps Script template.
  */
-function buildEmailHtml(nombre: string, photoCount: number): string {
+function buildEmailHtml(nombre: string, photoUrls: string[]): string {
+  const photoCount = photoUrls.length;
   const photoWord = photoCount === 1 ? 'fotografía' : 'fotografías';
+  const photoLinks = photoUrls
+    .map(
+      (url, i) => `
+    <p style="margin: 8px 0;">
+      <a href="${url}" style="color: #e74c3c; text-decoration: none; font-weight: bold;">
+        📷 Foto ${i + 1}
+      </a>
+    </p>`
+    )
+    .join('');
+
   return `
 <!DOCTYPE html>
 <html lang="es">
@@ -103,9 +81,11 @@ function buildEmailHtml(nombre: string, photoCount: number): string {
   <h2 style="color: #2c3e50;">¡Hola, ${nombre}! 👋</h2>
 
   <p>
-    Te envío adjuntas las <strong>${photoCount} ${photoWord}</strong> capturadas de
+    Te envío los enlaces para descargar las <strong>${photoCount} ${photoWord}</strong> capturadas de
     nuestra sesión. ¡El resultado ha quedado genial! 🎉
   </p>
+
+  ${photoLinks}
 
   <p>
     Puedes ver más sobre nuestro trabajo en
@@ -209,22 +189,7 @@ export const sendStudentEmail = onCall(
       return { success: false, message: 'Email was already sent for this student.' };
     }
 
-    // ── 4. Download photos ────────────────────────────────────────────────────
-    logger.info(`Downloading ${student.photos.length} photo(s)…`);
-
-    const attachments = await Promise.all(
-      student.photos.map(async (url, index) => {
-        const buffer = await downloadPhoto(url);
-        const filename = filenameFromUrl(url, index);
-        return {
-          filename,
-          content: buffer,
-          contentType: 'image/jpeg',
-        };
-      })
-    );
-
-    // ── 5. Send email via Gmail SMTP ──────────────────────────────────────────
+    // ── 4. Send email via Gmail SMTP with photo links ─────────────────────────
     const gmailPassword = process.env['GMAIL_PASSWORD'];
 
     if (!gmailPassword) {
@@ -248,22 +213,17 @@ export const sendStudentEmail = onCall(
     const nombre = student.nombre;
     const photoCount = student.photos.length;
 
-    logger.info(`Sending email to ${student.email} with ${photoCount} attachment(s)…`);
+    logger.info(`Sending email to ${student.email} with ${photoCount} photo link(s)…`);
 
     try {
       await transporter.sendMail({
         from: '"MemodreamsEvents" <memodreamsevents@gmail.com>',
         to: student.email,
         subject: `Fotos CV - ${nombre}`,
-        html: buildEmailHtml(nombre, photoCount),
-        attachments: attachments.map((a) => ({
-          filename: a.filename,
-          content: a.content,
-          contentType: 'image/jpeg',
-        })),
+        html: buildEmailHtml(nombre, student.photos),
       });
     } catch (mailError: unknown) {
-      logger.error('Resend failed to send email:', mailError);
+      logger.error('Failed to send email:', mailError);
       throw new HttpsError('internal', 'Failed to send email. Please try again later.');
     }
 
