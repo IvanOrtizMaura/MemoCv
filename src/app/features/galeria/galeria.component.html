@@ -3,9 +3,6 @@
     <div class="galeria-title-row">
       <h1 class="galeria-title">Galería de Estudiantes</h1>
       <div class="galeria-actions">
-        <button class="button-secondary" (click)="onSendAllEmails()">
-          Enviar todos los emails
-        </button>
         <a routerLink="/register" class="button-primary">
           Nuevo Registro
         </a>
@@ -24,6 +21,62 @@
       />
     </div>
   </header>
+
+  @if (store.hasSelection()) {
+    <div class="bulk-action-bar">
+      <div class="bulk-action-bar-left">
+        <span class="bulk-selection-count">
+          {{ store.selectedCount() }} estudiante{{ store.selectedCount() !== 1 ? 's' : '' }} seleccionado{{ store.selectedCount() !== 1 ? 's' : '' }}
+        </span>
+        <button class="bulk-button bulk-button--ghost" (click)="onSelectAll()">
+          Seleccionar todos
+        </button>
+      </div>
+      <div class="bulk-action-bar-right">
+        <button
+          class="bulk-button bulk-button--email"
+          [disabled]="isBulkEmailLoading()"
+          (click)="onBulkEmail()"
+        >
+          @if (isBulkEmailLoading()) {
+            <span class="bulk-button-spinner"></span>
+            Enviando...
+          } @else {
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+              <polyline points="22,6 12,13 2,6"/>
+            </svg>
+            Enviar Email
+          }
+        </button>
+        <button
+          class="bulk-button bulk-button--delete"
+          [disabled]="isBulkDeleteLoading()"
+          (click)="onBulkDelete()"
+        >
+          @if (isBulkDeleteLoading()) {
+            <span class="bulk-button-spinner"></span>
+            Eliminando...
+          } @else {
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="3 6 5 6 21 6"/>
+              <path d="M19 6l-1 14H6L5 6"/>
+              <path d="M10 11v6M14 11v6"/>
+              <path d="M9 6V4h6v2"/>
+            </svg>
+            Eliminar
+          }
+        </button>
+        <button class="bulk-button bulk-button--clear" (click)="onClearSelection()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+          Deseleccionar
+        </button>
+      </div>
+    </div>
+  }
 
   @if (store.isLoading()) {
     <div class="loading-state">
@@ -44,8 +97,27 @@
   } @else {
     <div class="students-grid">
       @for (student of store.filteredStudents(); track student.id) {
-        <div class="student-card">
-          <a [routerLink]="['/student', student.id]" class="student-card-body">
+        <div
+          class="student-card"
+          [class.student-card--selected]="store.selectedIdsSet().has(student.id!)"
+        >
+          <label
+            class="student-card-checkbox-label"
+            (click)="$event.stopPropagation()"
+          >
+            <input
+              type="checkbox"
+              class="student-card-checkbox"
+              [checked]="store.selectedIdsSet().has(student.id!)"
+              (change)="onCheckboxChange($event, student.id!)"
+            />
+          </label>
+
+          <a
+            [routerLink]="['/student', student.id]"
+            class="student-card-body"
+            (click)="onCardClick($event, student.id!)"
+          >
             <div class="student-card-photo">
               @if (student.photos.length > 0) {
                 <img [src]="student.photos[0]" [alt]="student.nombre + ' ' + student.apellidos" />
@@ -59,6 +131,13 @@
               }
               @if (student.emailSent) {
                 <span class="email-sent-badge">Email enviado</span>
+              }
+              @if (store.selectedIdsSet().has(student.id!)) {
+                <div class="student-card-selected-overlay">
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                </div>
               }
             </div>
             <div class="student-card-info">

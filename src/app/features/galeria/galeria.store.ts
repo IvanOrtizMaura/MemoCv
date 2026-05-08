@@ -9,12 +9,14 @@ interface GaleriaState {
   students: Student[];
   searchQuery: string;
   isLoading: boolean;
+  selectedIds: string[];
 }
 
 const initialGaleriaState: GaleriaState = {
   students: [],
   searchQuery: '',
-  isLoading: false
+  isLoading: false,
+  selectedIds: []
 };
 
 export const GaleriaStore = signalStore(
@@ -27,7 +29,10 @@ export const GaleriaStore = signalStore(
         const fullName = `${student.nombre} ${student.apellidos}`.toLowerCase();
         return fullName.includes(query) || student.email.toLowerCase().includes(query);
       });
-    })
+    }),
+    selectedIdsSet: computed(() => new Set(store.selectedIds())),
+    selectedCount: computed(() => store.selectedIds().length),
+    hasSelection: computed(() => store.selectedIds().length > 0)
   })),
   withMethods((store, studentService = inject(StudentService)) => ({
     setSearchQuery(query: string): void {
@@ -52,6 +57,20 @@ export const GaleriaStore = signalStore(
       patchState(store, {
         students: store.students().filter((student) => student.id !== studentId)
       });
+    },
+    toggleSelection(studentId: string): void {
+      const currentIds = store.selectedIds();
+      if (currentIds.includes(studentId)) {
+        patchState(store, { selectedIds: currentIds.filter((id) => id !== studentId) });
+      } else {
+        patchState(store, { selectedIds: [...currentIds, studentId] });
+      }
+    },
+    selectAll(studentIds: string[]): void {
+      patchState(store, { selectedIds: studentIds });
+    },
+    clearSelection(): void {
+      patchState(store, { selectedIds: [] });
     }
   }))
 );

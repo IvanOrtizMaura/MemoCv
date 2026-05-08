@@ -156,6 +156,133 @@
   }
 }
 
+// ─── Bulk action bar ──────────────────────────────────────────────────────────
+
+.bulk-action-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  padding: 0.85rem 1.25rem;
+  margin-bottom: 1.5rem;
+  background: rgba(30, 40, 110, 0.75);
+  border: 1px solid rgba(77, 101, 215, 0.4);
+  border-radius: 0.75rem;
+  backdrop-filter: blur(8px);
+  animation: slideDown 0.2s ease;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.bulk-action-bar-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.bulk-action-bar-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.bulk-selection-count {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #A5B4FC;
+  font-family: 'Inter', sans-serif;
+}
+
+.bulk-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.9rem;
+  border-radius: 0.45rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  font-family: 'Inter', sans-serif;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.2s ease;
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
+  &--ghost {
+    background: transparent;
+    color: #7B90DB;
+    border-color: rgba(123, 144, 219, 0.3);
+
+    &:hover:not(:disabled) {
+      background: rgba(50, 67, 182, 0.2);
+      color: #A5B4FC;
+    }
+  }
+
+  &--email {
+    background: rgba(37, 99, 235, 0.15);
+    color: #93C5FD;
+    border-color: rgba(37, 99, 235, 0.35);
+
+    &:hover:not(:disabled) {
+      background: rgba(37, 99, 235, 0.28);
+      color: #BFDBFE;
+      border-color: rgba(37, 99, 235, 0.6);
+    }
+  }
+
+  &--delete {
+    background: rgba(239, 68, 68, 0.12);
+    color: #FCA5A5;
+    border-color: rgba(239, 68, 68, 0.3);
+
+    &:hover:not(:disabled) {
+      background: rgba(239, 68, 68, 0.25);
+      color: #FECACA;
+      border-color: rgba(239, 68, 68, 0.55);
+    }
+  }
+
+  &--clear {
+    background: transparent;
+    color: rgba(241, 243, 248, 0.5);
+    border-color: rgba(241, 243, 248, 0.15);
+
+    &:hover:not(:disabled) {
+      background: rgba(241, 243, 248, 0.08);
+      color: #F1F3F8;
+    }
+  }
+}
+
+.bulk-button-spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  opacity: 0.8;
+}
+
+// ─── Students grid ────────────────────────────────────────────────────────────
+
 .students-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -171,6 +298,7 @@
 }
 
 .student-card {
+  position: relative;
   background: rgba(50, 67, 182, 0.12);
   border: 1px solid rgba(123, 144, 219, 0.2);
   border-radius: 0.75rem;
@@ -184,7 +312,72 @@
     transform: translateY(-2px);
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
   }
+
+  &--selected {
+    border-color: #4D65D7;
+    box-shadow: 0 0 0 2px rgba(77, 101, 215, 0.35);
+
+    &:hover {
+      border-color: #6378E8;
+    }
+  }
 }
+
+// ─── Checkbox ─────────────────────────────────────────────────────────────────
+
+.student-card-checkbox-label {
+  position: absolute;
+  top: 0.6rem;
+  left: 0.6rem;
+  z-index: 10;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.student-card-checkbox {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(165, 180, 252, 0.6);
+  border-radius: 4px;
+  background: rgba(15, 20, 60, 0.7);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  backdrop-filter: blur(4px);
+
+  &:hover {
+    border-color: #A5B4FC;
+    background: rgba(50, 67, 182, 0.4);
+  }
+
+  &:checked {
+    background: #4D65D7;
+    border-color: #4D65D7;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='3'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: center;
+  }
+}
+
+// ─── Selected overlay ─────────────────────────────────────────────────────────
+
+.student-card-selected-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(50, 67, 182, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #A5B4FC;
+  pointer-events: none;
+}
+
+// ─── Card body ────────────────────────────────────────────────────────────────
 
 .student-card-body {
   display: flex;
